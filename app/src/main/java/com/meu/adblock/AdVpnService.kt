@@ -14,6 +14,9 @@ class AdVpnService : VpnService() {
 
     companion object {
         @Volatile var running = false
+        val queries = java.util.concurrent.atomic.AtomicInteger()
+        val blockedCount = java.util.concurrent.atomic.AtomicInteger()
+        val recent = java.util.concurrent.ConcurrentLinkedDeque<String>()
         const val ACTION_STOP = "com.meu.adblock.STOP"
         private const val VPN_DNS = "10.111.0.1"
         private const val UPSTREAM_DNS = "1.1.1.1"
@@ -32,6 +35,8 @@ class AdVpnService : VpnService() {
 
     private fun startVpn() {
         Blocklist.load(this)
+        Thread { Blocklist.update(this) }.start()
+        queries.set(0); blockedCount.set(0); recent.clear()
         val apps = getSharedPreferences("p", MODE_PRIVATE).getStringSet("apps", emptySet())!!
         if (apps.isEmpty()) { stopSelf(); return }
 
@@ -40,6 +45,11 @@ class AdVpnService : VpnService() {
             .addAddress("10.111.0.2", 32)
             .addDnsServer(VPN_DNS)
             .addRoute(VPN_DNS, 32)   // só o tráfego de DNS passa pelo app
+            // Também captura apps que usam DNS público fixo (8.8.8.8 etc.)
+            .addRoute("8.8.8.8", 32).addRoute("8.8.4.4", 32)
+            .addRoute("1.1.1.1", 32).addRoute("1.0.0.1", 32)
+            .addRoute("9.9.9.9", 32).addRoute("149.112.112.112", 32)
+            .addRoute("94.140.14.14", 32).addRoute("94.140.15.15", 32)
             .setBlocking(true)
         // Só os apps escolhidos usam este filtro; o resto (ex.: YouTube) fica intacto.
         for (pkg in apps) try { b.addAllowedApplication(pkg) } catch (_: Exception) {}
@@ -76,7 +86,12 @@ class AdVpnService : VpnService() {
             pool.execute {
                 try {
                     val q = parseQuestion(dns) ?: return@execute
-                    val resp = if (Blocklist.isBlocked(q.name)) blocked(dns, q) else forward(dns)
+                    val isBlocked = Blocklist.isBlocked(q.name)
+                    queries.incrementAndGet()
+                    if (isBlocked) blockedCount.incrementAndGet()
+                    recent.addFirst((if (isBlocked) "✗ " else "✓ ") + q.name)
+                    while (recent.size > 15) recent.pollLast()
+                    val resp = if (isBlocked) blocked(dns, q) else forward(dns)
                     if (resp != null) {
                         val out = wrap(pkt, ihl, resp)
                         synchronized(output) { output.write(out) }

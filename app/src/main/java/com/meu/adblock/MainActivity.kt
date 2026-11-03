@@ -9,6 +9,11 @@ import android.widget.*
 
 class MainActivity : Activity() {
     private lateinit var btn: Button
+    private lateinit var status: TextView
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val tick = object : Runnable {
+        override fun run() { refresh(); handler.postDelayed(this, 1000) }
+    }
     private lateinit var list: ListView
     private var apps = listOf<Pair<String, String>>()
 
@@ -36,15 +41,24 @@ class MainActivity : Activity() {
         }
         apps.forEachIndexed { i, a -> list.setItemChecked(i, a.first in saved) }
         root.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
+        status = TextView(this).apply { textSize = 11f; setPadding(0, 16, 0, 16) }
+        root.addView(status)
         btn = Button(this).apply { gravity = Gravity.CENTER; setOnClickListener { toggle() } }
         root.addView(btn)
         setContentView(root)
         refresh()
     }
 
-    override fun onResume() { super.onResume(); refresh() }
+    override fun onResume() { super.onResume(); handler.post(tick) }
+    override fun onPause() { handler.removeCallbacks(tick); super.onPause() }
 
-    private fun refresh() { btn.text = if (AdVpnService.running) "PARAR BLOQUEIO" else "INICIAR BLOQUEIO" }
+    private fun refresh() {
+        btn.text = if (AdVpnService.running) "PARAR BLOQUEIO" else "INICIAR BLOQUEIO"
+        status.text = if (AdVpnService.running)
+            "Lista: ${Blocklist.size} domínios | Consultas: ${AdVpnService.queries.get()} | Bloqueadas: ${AdVpnService.blockedCount.get()}\n" +
+                AdVpnService.recent.take(10).joinToString("\n")
+        else "Parado"
+    }
 
     private fun toggle() {
         if (AdVpnService.running) {
