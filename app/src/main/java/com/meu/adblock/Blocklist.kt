@@ -15,6 +15,18 @@ object Blocklist {
     )
 
     private fun cacheFile(ctx: Context) = File(ctx.filesDir, "blocklist_cache.txt")
+    private fun customFile(ctx: Context) = File(ctx.filesDir, "custom_domains.txt")
+
+    // Adiciona um domínio escolhido pelo usuário (vale na hora e fica salvo).
+    fun addCustom(ctx: Context, domain: String): Boolean {
+        val d = domain.trim().lowercase()
+            .removePrefix("http://").removePrefix("https://")
+            .substringBefore('/').trimEnd('.')
+        if ('.' !in d || d.any { it.isWhitespace() }) return false
+        customFile(ctx).appendText(d + "\n")
+        domains = domains + d
+        return true
+    }
 
     // Lista embutida + lista baixada (se existir).
     fun load(ctx: Context) {
@@ -27,6 +39,13 @@ object Blocklist {
         }
         val f = cacheFile(ctx)
         if (f.exists()) f.bufferedReader().useLines { lines ->
+            for (line in lines) {
+                val t = line.trim()
+                if (t.isNotEmpty()) set.add(t)
+            }
+        }
+        val c = customFile(ctx)
+        if (c.exists()) c.bufferedReader().useLines { lines ->
             for (line in lines) {
                 val t = line.trim()
                 if (t.isNotEmpty()) set.add(t)

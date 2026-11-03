@@ -41,6 +41,26 @@ class MainActivity : Activity() {
         }
         apps.forEachIndexed { i, a -> list.setItemChecked(i, a.first in saved) }
         root.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val et = EditText(this).apply {
+            hint = "Bloquear domínio (ex.: ads.site.com)"
+            textSize = 13f
+            setSingleLine()
+        }
+        val addBtn = Button(this).apply {
+            text = "BLOQUEAR"
+            setOnClickListener {
+                if (Blocklist.addCustom(this@MainActivity, et.text.toString())) {
+                    et.setText("")
+                    Toast.makeText(this@MainActivity, "Domínio bloqueado", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this@MainActivity, "Domínio inválido", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        row.addView(et, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(addBtn)
+        root.addView(row)
         status = TextView(this).apply { textSize = 11f; setPadding(0, 16, 0, 16) }
         root.addView(status)
         btn = Button(this).apply { gravity = Gravity.CENTER; setOnClickListener { toggle() } }
