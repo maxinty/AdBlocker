@@ -5,17 +5,21 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 
 class MainActivity : Activity() {
     private lateinit var btn: Button
     private lateinit var status: TextView
+    private lateinit var list: ListView
+    private lateinit var logAdapter: ArrayAdapter<String>
+    private var lastLog: List<String> = emptyList()
+    private var apps = listOf<Pair<String, String>>()
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() { refresh(); handler.postDelayed(this, 1000) }
     }
-    private lateinit var list: ListView
-    private var apps = listOf<Pair<String, String>>()
 
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
@@ -30,9 +34,11 @@ class MainActivity : Activity() {
             .sortedBy { it.second.lowercase() }
 
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(32, 96, 32, 32) }
+
+        // 1) Lista de apps
         root.addView(TextView(this).apply {
             text = "Marque os apps em que os anúncios serão bloqueados:"
-            textSize = 16f
+            textSize = 15f
         })
         list = ListView(this).apply {
             choiceMode = ListView.CHOICE_MODE_MULTIPLE
@@ -41,6 +47,41 @@ class MainActivity : Activity() {
         }
         apps.forEachIndexed { i, a -> list.setItemChecked(i, a.first in saved) }
         root.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        // 2) Contadores
+        status = TextView(this).apply { textSize = 11f; setPadding(0, 12, 0, 4) }
+        root.addView(status)
+
+        // 3) Log de consultas: toque num domínio ✓ para bloquear
+        root.addView(TextView(this).apply {
+            text = "Consultas recentes (toque em um ✓ para bloquear):"
+            textSize = 11f
+        })
+        logAdapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, ArrayList<String>()) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val v = super.getView(position, convertView, parent) as TextView
+                v.textSize = 12f
+                v.setPadding(8, 6, 8, 6)
+                return v
+            }
+        }
+        val logList = ListView(this).apply {
+            adapter = logAdapter
+            setOnItemClickListener { _, _, pos, _ ->
+                val item = logAdapter.getItem(pos) ?: return@setOnItemClickListener
+                if (item.startsWith("✓ ")) {
+                    val d = item.substring(2)
+                    if (Blocklist.addCustom(this@MainActivity, d)) {
+                        Toast.makeText(this@MainActivity, "Bloqueado: $d", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(this@MainActivity, "Esse já está bloqueado", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        root.addView(logList, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        // 4) Digitar um domínio manualmente
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val et = EditText(this).apply {
             hint = "Bloquear domínio (ex.: ads.site.com)"
@@ -61,10 +102,22 @@ class MainActivity : Activity() {
         row.addView(et, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         row.addView(addBtn)
         root.addView(row)
-        status = TextView(this).apply { textSize = 11f; setPadding(0, 16, 0, 16) }
-        root.addView(status)
+
+        // 5) Botões principais
+        val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         btn = Button(this).apply { gravity = Gravity.CENTER; setOnClickListener { toggle() } }
-        root.addView(btn)
+        val upd = Button(this).apply {
+            text = "ATUALIZAR LISTAS"
+            setOnClickListener {
+                Toast.makeText(this@MainActivity, "Baixando listas...", Toast.LENGTH_SHORT).show()
+                val ctx = applicationContext
+                Thread { Blocklist.update(ctx, true) }.start()
+            }
+        }
+        buttons.addView(btn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        buttons.addView(upd, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        root.addView(buttons)
+
         setContentView(root)
         refresh()
     }
@@ -73,11 +126,18 @@ class MainActivity : Activity() {
     override fun onPause() { handler.removeCallbacks(tick); super.onPause() }
 
     private fun refresh() {
-        btn.text = if (AdVpnService.running) "PARAR BLOQUEIO" else "INICIAR BLOQUEIO"
-        status.text = if (AdVpnService.running)
-            "Lista: ${Blocklist.size} domínios | Consultas: ${AdVpnService.queries.get()} | Bloqueadas: ${AdVpnService.blockedCount.get()}\n" +
-                AdVpnService.recent.take(10).joinToString("\n")
-        else "Parado"
+        val running = AdVpnService.running
+        btn.text = if (running) "PARAR BLOQUEIO" else "INICIAR BLOQUEIO"
+        val upd = if (Blocklist.updating) " (atualizando...)" else ""
+        status.text = if (running)
+            "Lista: ${Blocklist.size} domínios$upd | Consultas: ${AdVpnService.queries.get()} | Bloqueadas: ${AdVpnService.blockedCount.get()}"
+        else "Parado$upd"
+        val items = AdVpnService.recent.toList()
+        if (items != lastLog) {
+            lastLog = items
+            logAdapter.clear()
+            logAdapter.addAll(items)
+        }
     }
 
     private fun toggle() {

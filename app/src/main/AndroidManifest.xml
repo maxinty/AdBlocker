@@ -9,6 +9,7 @@
     </queries>
     <application
         android:icon="@mipmap/ic_launcher"
+        android:largeHeap="true"
         android:label="AdBlocker"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity android:name=".MainActivity" android:exported="true">

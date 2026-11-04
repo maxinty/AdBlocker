@@ -110,3 +110,41 @@ kochava.com
 branch.io
 singular.net
 appsflyer.com
+# --- v1.2: mais Google/AdMob ---
+ad.doubleclick.net
+googleads.g.doubleclick.net
+googleads4.g.doubleclick.net
+pagead-googlehosted.l.google.com
+googleadapis.l.google.com
+adservice.google.com.ar
+adservice.google.com.mx
+adservice.google.es
+adservice.google.co.uk
+gcdn.2mdn.net
+s0.2mdn.net
+video-ad-stats.googlesyndication.com
+csi.gstatic.com
+# --- v1.2: mais TikTok / ByteDance Ads ---
+ads.us.tiktok.com
+ads-va.tiktok.com
+log.byteoversea.com
+mon.byteoversea.com
+pangolin16.sgsnssdk.com
+api16-access-sg.pangle.io
+sf16-static.i18n-pglstatp.com
+lf16-adcdn.pangle.io
+# --- v1.2: SDKs de anúncio muito usados em apps de câmera/ferramentas ---
+mobileads.google.com
+facebook-audience-network
+an.facebook.com
+adsmoloco.com
+moloco.com
+bigo.sg
+bigossp.com
+ad.mi.com
+api.ad.xiaomi.com
+data.mistat.xiaomi.com
+sdkconfig.ad.xiaomi.com
+adsfs.oppomobile.com
+ads.heytapmobi.com
+adx.ads.oppomobile.com

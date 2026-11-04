@@ -89,8 +89,11 @@ class AdVpnService : VpnService() {
                     val isBlocked = Blocklist.isBlocked(q.name)
                     queries.incrementAndGet()
                     if (isBlocked) blockedCount.incrementAndGet()
-                    recent.addFirst((if (isBlocked) "✗ " else "✓ ") + q.name)
-                    while (recent.size > 15) recent.pollLast()
+                    val entry = (if (isBlocked) "✗ " else "✓ ") + q.name
+                    if (!recent.contains(entry)) {
+                        recent.addFirst(entry)
+                        while (recent.size > 40) recent.pollLast()
+                    }
                     val resp = if (isBlocked) blocked(dns, q) else forward(dns)
                     if (resp != null) {
                         val out = wrap(pkt, ihl, resp)
